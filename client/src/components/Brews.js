@@ -1,6 +1,7 @@
 import React, { Component } from 'react'
 import Strapi from 'strapi-sdk-javascript/build/main';
-import { Box, Heading, Text, Image, Card, Button, Mask } from 'gestalt';
+import { Box, Heading, Text, Image, Card, Button, Mask, IconButton } from 'gestalt';
+import { calculatePrice, getCart, setCart } from '../components/utils/index'
 import { Link } from 'react-router-dom';
 
 const apiUrl = process.env.API_URL || 'http://localhost:1337';
@@ -12,6 +13,13 @@ export default class Brews extends Component {
         brand: '',
         cartItems: []
     }
+
+
+
+
+
+
+
     async componentDidMount() {
         console.log(this.props)
         const response = await strapi.request('POST', 'graphql', {
@@ -35,11 +43,38 @@ export default class Brews extends Component {
         })
         this.setState({
             brews: response.data.brand.brews,
-            brand: response.data.brand.name
+            brand: response.data.brand.name,
+            cartItems: getCart()
         })
         //console.log(this.props.match.params.brandId);
         console.log(response);
     }
+
+
+    addToCart = brew => {
+        const alreadyInCart = this.state.cartItems.findIndex(item => item._id === brew._id);
+        if (alreadyInCart === -1) {
+            const updatedItems = this.state.cartItems.concat({
+                ...brew,
+                quantity: 1
+            });
+            this.setState({ cartItems: updatedItems });
+        } else {
+            const updatedItems = [...this.state.cartItems];
+            updatedItems[alreadyInCart].quantity += 1;
+            this.setState({ cartItems: updatedItems }, () => setCart(updatedItems));
+        }
+    }
+
+
+    deleteFromCart = id => {
+        const filteredItems = this.state.cartItems.filter(item => item._id !== id);
+        this.setState({ cartItems: filteredItems }, () => setCart(filteredItems));
+    }
+
+
+
+
     render() {
         const { brand, brews, cartItems } = this.state;
         return (
@@ -62,7 +97,7 @@ export default class Brews extends Component {
                                     <Text bold size="xl">{brew.name}</Text>
                                     <Text >{brew.description}</Text>
                                     <Text >{brew.price}</Text>
-                                    <Button color="blue" text="Add to Cart"></Button>
+                                    <Button onClick={() => this.addToCart(brew)} color="blue" text="Add to Cart"></Button>
                                 </Box>
 
                             </Card>
@@ -80,13 +115,31 @@ export default class Brews extends Component {
                                         <Text color="red">Plese select some items</Text>
                                     )}
                                 </Box>
-                                <Text>Total: </Text>
+                                <Box>
+                                    {cartItems.map(item =>
+                                        <React.Fragment>
+                                            <Box key={item.id}>
+                                                <Text>{item.name} X {item.quantity} - {(item.quantity * item.price)}</Text>
+                                            </Box>
+                                            <IconButton
+                                                accessibilityLabel="Delete Item"
+                                                icon="cancel"
+                                                size="sm"
+                                                iconColor="red"
+                                                onClick={() => this.deleteFromCart(item._id)}
+                                            />
+                                        </React.Fragment>
+                                    )}
+                                </Box>
+                                <Text>Total: {calculatePrice(cartItems)}</Text>
                                 <Link to="/checkout">Checkout</Link>
                             </Box>
                         </Box>
                     </Mask>
                 </Box>
+
             </Box>
+
         )
     }
 }
